@@ -68,13 +68,20 @@ function! s:ASTExplore(filepath, window_id)
     call add(output_list, output)
   endfor
   call setline(1, output_list)
-  nnoremap <buffer> <Enter> :call <SID>SelectNode(b:list[line('.') - 1][1], b:source_window)<CR>
+  nnoremap <silent> <buffer> <Enter> :call <SID>SelectNode(b:list[line('.') - 1][1], b:source_window)<CR>
   setlocal nomodifiable
   setlocal readonly
   setlocal nobuflisted
   setlocal buftype=nofile
   setlocal noswapfile
   setlocal cursorline
+  setlocal foldmethod=indent
+  setlocal shiftwidth=1
+  setlocal filetype=ast
+  " augroup ast
+  "   autocmd!
+  "   autocmd CursorMoved <buffer> call s:SelectNode(b:list[line('.') - 1][1], b:source_window)
+  " augroup END
 endfunction
 
 command! ASTExplore call s:ASTExplore(expand('%'), win_getid())
