@@ -45,10 +45,33 @@ function! s:BuildOutputList(list, node_id, tree, depth)
   endfor
 endfunction
 
+let s:match_list = []
+
+function! s:AddMatches(locinfo)
+  if a:locinfo.start.line == a:locinfo.end.line
+    call add(s:match_list, matchaddpos('AstNode', [[a:locinfo.start.line, a:locinfo.start.column + 1, a:locinfo.end.column - a:locinfo.start.column]]))
+    return
+  endif
+  call add(s:match_list, matchaddpos('AstNode', [[a:locinfo.start.line, a:locinfo.start.column + 1, max([1, len(getline(a:locinfo.start.line)) - a:locinfo.start.column])]]))
+  for line in range(a:locinfo.start.line + 1, a:locinfo.end.line - 1)
+    call add(s:match_list, matchaddpos('AstNode', [line]))
+  endfor
+  call add(s:match_list, matchaddpos('AstNode', [[a:locinfo.end.line, 1, a:locinfo.end.column]]))
+endfunction
+
 function! s:SelectNode(locinfo, window_id)
   let window_number = win_id2tabwin(a:window_id)[1]
-  execute window_number . 'windo normal ' . a:locinfo.start.line . 'G'
-        \ . (a:locinfo.start.column + 1) . '|v' . a:locinfo.end.line . 'G' . a:locinfo.end.column . '|'
+  for match_id in s:match_list
+    try
+      execute window_number . 'windo call matchdelete(' . match_id . ')'
+    catch /E803/
+      " ignore matches that were already cleared
+    endtry
+  endfor
+  let s:match_list = []
+  execute window_number . 'windo call s:AddMatches(a:locinfo)'
+  execute window_number . 'windo normal ' . a:locinfo.start.line . 'G' . (a:locinfo.start.column + 1) . '|'
+  execute window_number . 'wincmd p'
 endfunction
 
 function! s:ASTExplore(filepath, window_id)
@@ -78,10 +101,12 @@ function! s:ASTExplore(filepath, window_id)
   setlocal foldmethod=indent
   setlocal shiftwidth=1
   setlocal filetype=ast
+  setlocal statusline=\ " empty
   " augroup ast
   "   autocmd!
   "   autocmd CursorMoved <buffer> call s:SelectNode(b:list[line('.') - 1][1], b:source_window)
   " augroup END
 endfunction
 
+highlight AstNode guibg=blue ctermbg=blue
 command! ASTExplore call s:ASTExplore(expand('%'), win_getid())
