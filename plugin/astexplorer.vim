@@ -1,14 +1,14 @@
 let s:node_identifier = 0
 
-function! s:BuildOutputAst(node, node_map, parent_id, descriptor)
+function! s:BuildTree(node, tree, parent_id, descriptor)
   if type(a:node) == v:t_dict
     if has_key(a:node, 'type') && has_key(a:node, 'loc')
       let current_node_id = s:node_identifier
-      if !has_key(a:node_map, a:parent_id)
-        let a:node_map[a:parent_id] = []
+      if !has_key(a:tree, a:parent_id)
+        let a:tree[a:parent_id] = []
       endif
       let node_info = { 'type': a:node.type, 'loc': a:node.loc, 'id': current_node_id, 'descriptor': a:descriptor }
-      call add(a:node_map[a:parent_id], node_info)
+      call add(a:tree[a:parent_id], node_info)
       if has_key(a:node, 'value') && type(a:node.value) != v:t_dict
         let node_info.value = json_encode(a:node.value)
       elseif has_key(a:node, 'operator') && type(a:node.operator) == v:t_string
@@ -16,21 +16,21 @@ function! s:BuildOutputAst(node, node_map, parent_id, descriptor)
       endif
       let s:node_identifier += 1
       for [key, node] in items(a:node)
-        call s:BuildOutputAst(node, a:node_map, current_node_id, key)
+        call s:BuildTree(node, a:tree, current_node_id, key)
       endfor
     endif
   elseif type(a:node) == v:t_list
     for node in a:node
-      call s:BuildOutputAst(node, a:node_map, a:parent_id, a:descriptor)
+      call s:BuildTree(node, a:tree, a:parent_id, a:descriptor)
     endfor
   endif
 endfunction
 
-function! s:BuildOutputList(list, map_id, node_map, depth)
-  if !has_key(a:node_map, a:map_id)
+function! s:BuildOutputList(list, node_id, tree, depth)
+  if !has_key(a:tree, a:node_id)
     return
   endif
-  for node in a:node_map[a:map_id]
+  for node in a:tree[a:node_id]
     let indent = ''
     for _ in range(0, a:depth - 1)
       let indent = indent . ' '
@@ -41,7 +41,7 @@ function! s:BuildOutputList(list, map_id, node_map, depth)
           \ . (has_key(node.loc, 'identifierName') ? ' - ' . node.loc.identifierName : '')
           \ . (has_key(node, 'value') ? ' - ' . node.value : '')
           \ , node.loc])
-    call s:BuildOutputList(a:list, node.id, a:node_map, a:depth + 1)
+    call s:BuildOutputList(a:list, node.id, a:tree, a:depth + 1)
   endfor
 endfunction
 
@@ -55,10 +55,10 @@ function! s:ASTExplore(filepath, window_id)
   let ast = system('./node_modules/.bin/parser ' . a:filepath)
   execute 'vsplit ' . a:filepath . '-ast'
   let ast_dict = json_decode(ast)
-  let node_map = {}
-  call s:BuildOutputAst(ast_dict, node_map, 'root', '')
+  let tree = {}
+  call s:BuildTree(ast_dict, tree, 'root', '')
   let b:list = []
-  call s:BuildOutputList(b:list, 'root', node_map, 0)
+  call s:BuildOutputList(b:list, 'root', tree, 0)
   setlocal modifiable
   setlocal noreadonly
   " call setline(1, split(ast, "\n"))
