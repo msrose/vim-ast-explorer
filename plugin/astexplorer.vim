@@ -74,6 +74,15 @@ function! s:SelectNode(locinfo, window_id)
   execute window_number . 'wincmd p'
 endfunction
 
+let s:last_line = 0
+
+function! s:SelectNodeIfLineChanged(locinfo, source_window)
+  if line('.') != s:last_line
+    let s:last_line = line('.')
+    call s:SelectNode(a:locinfo, a:source_window)
+  endif
+endfunction
+
 function! s:ASTExplore(filepath, window_id)
   let ast = system('./node_modules/.bin/parser ' . a:filepath)
   execute 'vsplit ' . a:filepath . '-ast'
@@ -101,11 +110,11 @@ function! s:ASTExplore(filepath, window_id)
   setlocal foldmethod=indent
   setlocal shiftwidth=1
   setlocal filetype=ast
-  setlocal statusline=\ " empty
-  " augroup ast
-  "   autocmd!
-  "   autocmd CursorMoved <buffer> call s:SelectNode(b:list[line('.') - 1][1], b:source_window)
-  " augroup END
+  setlocal statusline=ASTExplorer
+  augroup ast
+    autocmd!
+    autocmd CursorMoved <buffer> call s:SelectNodeIfLineChanged(b:list[line('.') - 1][1], b:source_window)
+  augroup END
 endfunction
 
 highlight AstNode guibg=blue ctermbg=blue
