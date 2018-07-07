@@ -97,6 +97,10 @@ function! s:HighlightNode(locinfo)
   execute window_number . 'wincmd p'
 endfunction
 
+function! s:HighlightNodeForCurrentLine()
+  call s:HighlightNode(b:ast_explorer_node_list[line('.') - 1][1])
+endfunction
+
 function! s:DrawAst(buffer_line_list)
   setlocal modifiable
   setlocal noreadonly
@@ -162,10 +166,12 @@ function! s:ASTExplore(filepath, window_id)
     call add(buffer_line_list, buffer_line)
   endfor
   call s:DrawAst(buffer_line_list)
+  unlet b:ast_explorer_previous_cursor_line
+  call s:HighlightNodeForCurrentLine()
 
   augroup ast
     autocmd!
-    autocmd CursorMoved <buffer> call s:HighlightNode(b:ast_explorer_node_list[line('.') - 1][1])
+    autocmd CursorMoved <buffer> call s:HighlightNodeForCurrentLine()
   augroup END
 endfunction
 
