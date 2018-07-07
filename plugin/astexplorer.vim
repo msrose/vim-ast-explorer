@@ -60,8 +60,8 @@ function! s:AddMatches(locinfo)
   call add(b:ast_explorer_match_list, matchaddpos('AstNode', [[a:locinfo.end.line, 1, a:locinfo.end.column]]))
 endfunction
 
-function! s:GetWindowNumber(window_id)
-  return win_id2tabwin(a:window_id)[1]
+function! s:GetSourceWindowNumber()
+  return win_id2tabwin(b:ast_explorer_source_window)[1]
 endfunction
 
 function! s:DeleteMatches()
@@ -78,23 +78,20 @@ function! s:DeleteMatches()
   let b:ast_explorer_match_list = []
 endfunction
 
-function! s:SelectNode(locinfo, window_id)
-  let window_number = s:GetWindowNumber(a:window_id)
-  execute window_number . 'windo call s:DeleteMatches()'
-  execute window_number . 'windo call s:AddMatches(a:locinfo)'
-  execute window_number . 'windo normal ' . a:locinfo.start.line . 'G' . (a:locinfo.start.column + 1) . '|'
-  execute window_number . 'wincmd p'
-endfunction
-
-function! s:SelectNodeIfLineChanged(locinfo, source_window)
+function! s:HighlightNode(locinfo)
   if !exists('b:ast_explorer_previous_cursor_line')
     let b:ast_explorer_previous_cursor_line = 0
   endif
   let current_cursor_line = line('.')
-  if current_cursor_line != b:ast_explorer_previous_cursor_line
-    let b:ast_explorer_previous_cursor_line = current_cursor_line
-    call s:SelectNode(a:locinfo, a:source_window)
+  if current_cursor_line == b:ast_explorer_previous_cursor_line
+    return
   endif
+  let b:ast_explorer_previous_cursor_line = current_cursor_line
+  let window_number = s:GetSourceWindowNumber()
+  execute window_number . 'windo call s:DeleteMatches()'
+  execute window_number . 'windo call s:AddMatches(a:locinfo)'
+  execute window_number . 'windo normal ' . a:locinfo.start.line . 'G' . (a:locinfo.start.column + 1) . '|'
+  execute window_number . 'wincmd p'
 endfunction
 
 function! s:ASTExplore(filepath, window_id)
@@ -129,7 +126,7 @@ function! s:ASTExplore(filepath, window_id)
   endif
   augroup ast
     autocmd!
-    autocmd CursorMoved <buffer> call s:SelectNodeIfLineChanged(b:ast_explorer_node_list[line('.') - 1][1], b:ast_explorer_source_window)
+    autocmd CursorMoved <buffer> call s:HighlightNode(b:ast_explorer_node_list[line('.') - 1][1])
   augroup END
 endfunction
 
