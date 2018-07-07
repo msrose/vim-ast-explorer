@@ -116,8 +116,9 @@ function! s:DrawAst(buffer_line_list)
   setlocal statusline=ASTExplorer
   setlocal nonumber
   if &colorcolumn
-    set colorcolumn=
+    setlocal colorcolumn=
   endif
+  setlocal winfixwidth
 endfunction
 
 function! s:ASTExplore(filepath, window_id)
