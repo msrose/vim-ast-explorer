@@ -36,7 +36,7 @@ function! s:BuildOutputList(list, node_id, tree, depth)
       let indent = indent . ' '
     endfor
     call add(a:list, [indent
-          \ . (node.descriptor != '' ? node.descriptor . ': ' : '')
+          \ . (node.descriptor !=# '' ? node.descriptor . ': ' : '')
           \ . node.type
           \ . (has_key(node.loc, 'identifierName') ? ' - ' . node.loc.identifierName : '')
           \ . (has_key(node, 'value') ? ' - ' . node.value : '')
@@ -96,7 +96,7 @@ function! s:HighlightNode(locinfo)
   let window_number = s:GetSourceWindowNumber()
   execute window_number . 'windo call s:DeleteMatches()'
   execute window_number . 'windo call s:AddMatches(a:locinfo)'
-  execute printf('%dwindo normal %dG%d|', window_number, a:locinfo.start.line, a:locinfo.start.column + 1)
+  execute printf('%dwindo normal! %dG%d|', window_number, a:locinfo.start.line, a:locinfo.start.column + 1)
   execute window_number . 'wincmd p'
 endfunction
 

@@ -1,0 +1,4 @@
+ansicolor==0.2.6
+chardet==3.0.4
+PyYAML==3.13
+vim-vint==0.3.19
