@@ -64,7 +64,7 @@ function! s:AddMatches(locinfo)
 endfunction
 
 function! s:GetSourceWindowNumber()
-  return win_id2tabwin(b:ast_explorer_source_window)[1]
+  return win_id2win(b:ast_explorer_source_window)
 endfunction
 
 function! s:DeleteMatches()
@@ -120,23 +120,31 @@ endfunction
 
 let s:source_window_to_ast_explorer_mapping = {}
 
+function! s:DeleteMatchesIfAstExplorerGone()
+  let window_id = win_getid()
+  let ast_explorer_window_id = get(s:source_window_to_ast_explorer_mapping, window_id)
+  if ast_explorer_window_id && !win_id2win(ast_explorer_window_id)
+    call s:DeleteMatches()
+    call remove(s:source_window_to_ast_explorer_mapping, window_id)
+  endif
+endfunction
+
 function! s:ASTExplore(filepath, window_id)
   if exists('b:ast_explorer_source_window')
-    call remove(s:source_window_to_ast_explorer_mapping, b:ast_explorer_source_window)
-    let window_number = s:GetSourceWindowNumber()
-    execute window_number . 'windo call s:DeleteMatches()'
-    execute window_number . 'wincmd p'
-    bdelete
+    quit
     return
   endif
 
   if has_key(s:source_window_to_ast_explorer_mapping, a:window_id)
-    call s:DeleteMatches()
-    let ast_explorer_buffer_id = winbufnr(s:source_window_to_ast_explorer_mapping[a:window_id])
-    execute ast_explorer_buffer_id . 'bdelete'
-    call remove(s:source_window_to_ast_explorer_mapping, a:window_id)
+    let ast_explorer_window_number = win_id2win(s:source_window_to_ast_explorer_mapping[a:window_id])
+    execute ast_explorer_window_number . 'windo quit'
     return
   endif
+
+  augroup ast_source
+    autocmd!
+    autocmd BufEnter <buffer> call s:DeleteMatchesIfAstExplorerGone()
+  augroup END
 
   execute 'keepalt 60vsplit ' . a:filepath . '-ast'
   let b:ast_explorer_node_list = []
