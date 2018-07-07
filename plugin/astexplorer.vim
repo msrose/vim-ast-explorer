@@ -121,10 +121,30 @@ function! s:DrawAst(buffer_line_list)
   setlocal winfixwidth
 endfunction
 
+let s:source_window_to_ast_explorer_mapping = {}
+
 function! s:ASTExplore(filepath, window_id)
+  if exists('b:ast_explorer_source_window')
+    call remove(s:source_window_to_ast_explorer_mapping, b:ast_explorer_source_window)
+    let window_number = s:GetSourceWindowNumber()
+    execute window_number . 'windo call s:DeleteMatches()'
+    execute window_number . 'wincmd p'
+    bdelete
+    return
+  endif
+
+  if has_key(s:source_window_to_ast_explorer_mapping, a:window_id)
+    call s:DeleteMatches()
+    let ast_explorer_buffer_id = winbufnr(s:source_window_to_ast_explorer_mapping[a:window_id])
+    execute ast_explorer_buffer_id . 'bdelete'
+    call remove(s:source_window_to_ast_explorer_mapping, a:window_id)
+    return
+  endif
+
   execute '60vsplit ' . a:filepath . '-ast'
   let b:ast_explorer_node_list = []
   let b:ast_explorer_source_window = a:window_id
+  let s:source_window_to_ast_explorer_mapping[b:ast_explorer_source_window] = win_getid()
 
   let ast = system('./node_modules/.bin/parser ' . a:filepath)
   let ast_dict = json_decode(ast)
