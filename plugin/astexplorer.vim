@@ -59,7 +59,7 @@ function! s:AddMatches(locinfo)
   call add(s:match_list, matchaddpos('AstNode', [[a:locinfo.end.line, 1, a:locinfo.end.column]]))
 endfunction
 
-function! s:SelectNode(locinfo, window_id)
+function! s:DeleteMatches(window_id)
   let window_number = win_id2tabwin(a:window_id)[1]
   for match_id in s:match_list
     try
@@ -69,6 +69,11 @@ function! s:SelectNode(locinfo, window_id)
     endtry
   endfor
   let s:match_list = []
+endfunction
+
+function! s:SelectNode(locinfo, window_id)
+  call s:DeleteMatches(a:window_id)
+  let window_number = win_id2tabwin(a:window_id)[1]
   execute window_number . 'windo call s:AddMatches(a:locinfo)'
   execute window_number . 'windo normal ' . a:locinfo.start.line . 'G' . (a:locinfo.start.column + 1) . '|'
   execute window_number . 'wincmd p'
@@ -91,18 +96,16 @@ function! s:ASTExplore(filepath, window_id)
   let ast_dict = json_decode(ast)
   let tree = {}
   call s:BuildTree(ast_dict, tree, 'root', '')
-  let b:list = []
-  call s:BuildOutputList(b:list, 'root', tree, 0)
+  let b:ast_explorer_node_list = []
+  call s:BuildOutputList(b:ast_explorer_node_list, 'root', tree, 0)
   setlocal modifiable
   setlocal noreadonly
-  " call setline(1, split(ast, "\n"))
   let output_list = []
-  let b:source_window = a:window_id
-  for [output, locinfo] in b:list
+  let b:ast_explorer_source_window = a:window_id
+  for [output, locinfo] in b:ast_explorer_node_list
     call add(output_list, output)
   endfor
   call setline(1, output_list)
-  nnoremap <silent> <buffer> <Enter> :call <SID>SelectNode(b:list[line('.') - 1][1], b:source_window)<CR>
   setlocal nomodifiable
   setlocal readonly
   setlocal nobuflisted
@@ -115,7 +118,7 @@ function! s:ASTExplore(filepath, window_id)
   setlocal statusline=ASTExplorer
   augroup ast
     autocmd!
-    autocmd CursorMoved <buffer> call s:SelectNodeIfLineChanged(b:list[line('.') - 1][1], b:source_window)
+    autocmd CursorMoved <buffer> call s:SelectNodeIfLineChanged(b:ast_explorer_node_list[line('.') - 1][1], b:ast_explorer_source_window)
   augroup END
 endfunction
 
