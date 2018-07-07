@@ -74,11 +74,13 @@ function! s:SelectNode(locinfo, window_id)
   execute window_number . 'wincmd p'
 endfunction
 
-let s:last_line = 0
-
 function! s:SelectNodeIfLineChanged(locinfo, source_window)
-  if line('.') != s:last_line
-    let s:last_line = line('.')
+  if !exists('b:ast_explorer_previous_cursor_line')
+    let b:ast_explorer_previous_cursor_line = 0
+  endif
+  let current_cursor_line = line('.')
+  if current_cursor_line != b:ast_explorer_previous_cursor_line
+    let b:ast_explorer_previous_cursor_line = current_cursor_line
     call s:SelectNode(a:locinfo, a:source_window)
   endif
 endfunction
