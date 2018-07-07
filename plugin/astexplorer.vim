@@ -94,22 +94,10 @@ function! s:HighlightNode(locinfo)
   execute window_number . 'wincmd p'
 endfunction
 
-function! s:ASTExplore(filepath, window_id)
-  let ast = system('./node_modules/.bin/parser ' . a:filepath)
-  execute 'vsplit ' . a:filepath . '-ast'
-  let ast_dict = json_decode(ast)
-  let tree = {}
-  call s:BuildTree(ast_dict, tree, 'root', '')
-  let b:ast_explorer_node_list = []
-  call s:BuildOutputList(b:ast_explorer_node_list, 'root', tree, 0)
+function! s:DrawAst(buffer_line_list)
   setlocal modifiable
   setlocal noreadonly
-  let output_list = []
-  let b:ast_explorer_source_window = a:window_id
-  for [output, locinfo] in b:ast_explorer_node_list
-    call add(output_list, output)
-  endfor
-  call setline(1, output_list)
+  call setline(1, a:buffer_line_list)
   setlocal nomodifiable
   setlocal readonly
   setlocal nobuflisted
@@ -124,6 +112,25 @@ function! s:ASTExplore(filepath, window_id)
   if &colorcolumn
     set colorcolumn=
   endif
+endfunction
+
+function! s:ASTExplore(filepath, window_id)
+  execute '60vsplit ' . a:filepath . '-ast'
+  let b:ast_explorer_node_list = []
+  let b:ast_explorer_source_window = a:window_id
+
+  let ast = system('./node_modules/.bin/parser ' . a:filepath)
+  let ast_dict = json_decode(ast)
+  let tree = {}
+  call s:BuildTree(ast_dict, tree, 'root', '')
+  call s:BuildOutputList(b:ast_explorer_node_list, 'root', tree, 0)
+
+  let buffer_line_list = []
+  for [buffer_line, locinfo] in b:ast_explorer_node_list
+    call add(buffer_line_list, buffer_line)
+  endfor
+  call s:DrawAst(buffer_line_list)
+
   augroup ast
     autocmd!
     autocmd CursorMoved <buffer> call s:HighlightNode(b:ast_explorer_node_list[line('.') - 1][1])
