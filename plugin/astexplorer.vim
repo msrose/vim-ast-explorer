@@ -45,19 +45,25 @@ function! s:BuildOutputList(list, node_id, tree, depth)
   endfor
 endfunction
 
+function! s:AddMatch(match)
+  call add(b:ast_explorer_match_list, matchaddpos('AstNode', [a:match]))
+endfunction
+
 function! s:AddMatches(locinfo)
   if !exists('b:ast_explorer_match_list')
     let b:ast_explorer_match_list = []
   endif
-  if a:locinfo.start.line == a:locinfo.end.line
-    call add(b:ast_explorer_match_list, matchaddpos('AstNode', [[a:locinfo.start.line, a:locinfo.start.column + 1, a:locinfo.end.column - a:locinfo.start.column]]))
+  let start = a:locinfo.start
+  let end = a:locinfo.end
+  if start.line == end.line
+    call s:AddMatch([start.line, start.column + 1, end.column - start.column])
     return
   endif
-  call add(b:ast_explorer_match_list, matchaddpos('AstNode', [[a:locinfo.start.line, a:locinfo.start.column + 1, max([1, len(getline(a:locinfo.start.line)) - a:locinfo.start.column])]]))
-  for line in range(a:locinfo.start.line + 1, a:locinfo.end.line - 1)
-    call add(b:ast_explorer_match_list, matchaddpos('AstNode', [line]))
+  call s:AddMatch([start.line, start.column + 1, len(getline(start.line)) - start.column])
+  for line in range(start.line + 1, end.line - 1)
+    call s:AddMatch(line)
   endfor
-  call add(b:ast_explorer_match_list, matchaddpos('AstNode', [[a:locinfo.end.line, 1, a:locinfo.end.column]]))
+  call s:AddMatch([end.line, 1, end.column])
 endfunction
 
 function! s:GetSourceWindowNumber()
@@ -90,7 +96,7 @@ function! s:HighlightNode(locinfo)
   let window_number = s:GetSourceWindowNumber()
   execute window_number . 'windo call s:DeleteMatches()'
   execute window_number . 'windo call s:AddMatches(a:locinfo)'
-  execute window_number . 'windo normal ' . a:locinfo.start.line . 'G' . (a:locinfo.start.column + 1) . '|'
+  execute printf('%dwindo normal %dG%d|', window_number, a:locinfo.start.line, a:locinfo.start.column + 1)
   execute window_number . 'wincmd p'
 endfunction
 
