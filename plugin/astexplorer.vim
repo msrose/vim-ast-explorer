@@ -59,8 +59,12 @@ function! s:AddMatches(locinfo)
   call add(s:match_list, matchaddpos('AstNode', [[a:locinfo.end.line, 1, a:locinfo.end.column]]))
 endfunction
 
+function! s:GetWindowNumber(window_id)
+  return win_id2tabwin(a:window_id)[1]
+endfunction
+
 function! s:DeleteMatches(window_id)
-  let window_number = win_id2tabwin(a:window_id)[1]
+  let window_number = s:GetWindowNumber(a:window_id)
   for match_id in s:match_list
     try
       execute window_number . 'windo call matchdelete(' . match_id . ')'
@@ -73,7 +77,7 @@ endfunction
 
 function! s:SelectNode(locinfo, window_id)
   call s:DeleteMatches(a:window_id)
-  let window_number = win_id2tabwin(a:window_id)[1]
+  let window_number = s:GetWindowNumber(a:window_id)
   execute window_number . 'windo call s:AddMatches(a:locinfo)'
   execute window_number . 'windo normal ' . a:locinfo.start.line . 'G' . (a:locinfo.start.column + 1) . '|'
   execute window_number . 'wincmd p'
