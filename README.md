@@ -7,7 +7,7 @@ Highly experimental so far, so don't install this plugin. Only works with @babel
 ## TODO
 
 - [ ] Jump to AST node from file
-- [ ] Actually highlight nodes instead of using visual mode
+- [x] Actually highlight nodes instead of using visual mode
 - [ ] Prettier AST output: folds, highlighting
 - [ ] Support for more parsers
 - [ ] Automatically detect available supported parsers for filetype

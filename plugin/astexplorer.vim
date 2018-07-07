@@ -8,7 +8,16 @@ function! s:BuildTree(node, tree, parent_id, descriptor)
         let a:tree[a:parent_id] = []
       endif
       let node_info = { 'type': a:node.type, 'loc': a:node.loc, 'id': current_node_id, 'descriptor': a:descriptor }
-      call add(a:tree[a:parent_id], node_info)
+      let insertion_index = 0
+      for sibling in a:tree[a:parent_id]
+        if sibling.loc.start.line > node_info.loc.start.line ||
+              \ sibling.loc.start.line == node_info.loc.start.line &&
+              \ sibling.loc.start.column > node_info.loc.start.column
+          break
+        endif
+        let insertion_index += 1
+      endfor
+      call insert(a:tree[a:parent_id], node_info, insertion_index)
       if has_key(a:node, 'value') && type(a:node.value) != v:t_dict
         let node_info.value = json_encode(a:node.value)
       elseif has_key(a:node, 'operator') && type(a:node.operator) == v:t_string
@@ -166,7 +175,7 @@ function! s:ASTExplore(filepath, window_id)
     call add(buffer_line_list, buffer_line)
   endfor
   call s:DrawAst(buffer_line_list)
-  unlet b:ast_explorer_previous_cursor_line
+  unlet! b:ast_explorer_previous_cursor_line
   call s:HighlightNodeForCurrentLine()
 
   augroup ast
