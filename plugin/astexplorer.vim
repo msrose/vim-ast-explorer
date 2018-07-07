@@ -31,12 +31,9 @@ function! s:BuildOutputList(list, node_id, tree, depth)
     return
   endif
   for node in a:tree[a:node_id]
-    let indent = ''
-    for _ in range(0, a:depth - 1)
-      let indent = indent . ' '
-    endfor
+    let indent = repeat(' ', a:depth)
     call add(a:list, [indent
-          \ . (node.descriptor !=# '' ? node.descriptor . ': ' : '')
+          \ . (!empty(node.descriptor) ? node.descriptor . ': ' : '')
           \ . node.type
           \ . (has_key(node.loc, 'identifierName') ? ' - ' . node.loc.identifierName : '')
           \ . (has_key(node, 'value') ? ' - ' . node.value : '')
@@ -141,7 +138,7 @@ function! s:ASTExplore(filepath, window_id)
     return
   endif
 
-  execute '60vsplit ' . a:filepath . '-ast'
+  execute 'keepalt 60vsplit ' . a:filepath . '-ast'
   let b:ast_explorer_node_list = []
   let b:ast_explorer_source_window = a:window_id
   let s:source_window_to_ast_explorer_mapping[b:ast_explorer_source_window] = win_getid()
