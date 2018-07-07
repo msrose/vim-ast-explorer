@@ -45,39 +45,42 @@ function! s:BuildOutputList(list, node_id, tree, depth)
   endfor
 endfunction
 
-let s:match_list = []
-
 function! s:AddMatches(locinfo)
+  if !exists('b:ast_explorer_match_list')
+    let b:ast_explorer_match_list = []
+  endif
   if a:locinfo.start.line == a:locinfo.end.line
-    call add(s:match_list, matchaddpos('AstNode', [[a:locinfo.start.line, a:locinfo.start.column + 1, a:locinfo.end.column - a:locinfo.start.column]]))
+    call add(b:ast_explorer_match_list, matchaddpos('AstNode', [[a:locinfo.start.line, a:locinfo.start.column + 1, a:locinfo.end.column - a:locinfo.start.column]]))
     return
   endif
-  call add(s:match_list, matchaddpos('AstNode', [[a:locinfo.start.line, a:locinfo.start.column + 1, max([1, len(getline(a:locinfo.start.line)) - a:locinfo.start.column])]]))
+  call add(b:ast_explorer_match_list, matchaddpos('AstNode', [[a:locinfo.start.line, a:locinfo.start.column + 1, max([1, len(getline(a:locinfo.start.line)) - a:locinfo.start.column])]]))
   for line in range(a:locinfo.start.line + 1, a:locinfo.end.line - 1)
-    call add(s:match_list, matchaddpos('AstNode', [line]))
+    call add(b:ast_explorer_match_list, matchaddpos('AstNode', [line]))
   endfor
-  call add(s:match_list, matchaddpos('AstNode', [[a:locinfo.end.line, 1, a:locinfo.end.column]]))
+  call add(b:ast_explorer_match_list, matchaddpos('AstNode', [[a:locinfo.end.line, 1, a:locinfo.end.column]]))
 endfunction
 
 function! s:GetWindowNumber(window_id)
   return win_id2tabwin(a:window_id)[1]
 endfunction
 
-function! s:DeleteMatches(window_id)
-  let window_number = s:GetWindowNumber(a:window_id)
-  for match_id in s:match_list
+function! s:DeleteMatches()
+  if !exists('b:ast_explorer_match_list')
+    return
+  endif
+  for match_id in b:ast_explorer_match_list
     try
-      execute window_number . 'windo call matchdelete(' . match_id . ')'
+      call matchdelete(match_id)
     catch /E803/
       " ignore matches that were already cleared
     endtry
   endfor
-  let s:match_list = []
+  let b:ast_explorer_match_list = []
 endfunction
 
 function! s:SelectNode(locinfo, window_id)
-  call s:DeleteMatches(a:window_id)
   let window_number = s:GetWindowNumber(a:window_id)
+  execute window_number . 'windo call s:DeleteMatches()'
   execute window_number . 'windo call s:AddMatches(a:locinfo)'
   execute window_number . 'windo normal ' . a:locinfo.start.line . 'G' . (a:locinfo.start.column + 1) . '|'
   execute window_number . 'wincmd p'
@@ -120,6 +123,10 @@ function! s:ASTExplore(filepath, window_id)
   setlocal shiftwidth=1
   setlocal filetype=ast
   setlocal statusline=ASTExplorer
+  setlocal nonumber
+  if &colorcolumn
+    set colorcolumn=
+  endif
   augroup ast
     autocmd!
     autocmd CursorMoved <buffer> call s:SelectNodeIfLineChanged(b:ast_explorer_node_list[line('.') - 1][1], b:ast_explorer_source_window)
