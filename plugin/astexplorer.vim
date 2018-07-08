@@ -72,10 +72,6 @@ function! s:AddMatches(locinfo)
   call s:AddMatch([end.line, 1, end.column])
 endfunction
 
-function! s:GetSourceWindowNumber()
-  return win_id2win(b:ast_explorer_source_window)
-endfunction
-
 function! s:DeleteMatches()
   if !exists('b:ast_explorer_match_list')
     return
@@ -99,11 +95,11 @@ function! s:HighlightNode(locinfo)
     return
   endif
   let b:ast_explorer_previous_cursor_line = current_cursor_line
-  let window_number = s:GetSourceWindowNumber()
-  execute window_number . 'windo call s:DeleteMatches()'
-  execute window_number . 'windo call s:AddMatches(a:locinfo)'
-  execute printf('%dwindo normal! %dG%d|', window_number, a:locinfo.start.line, a:locinfo.start.column + 1)
-  execute window_number . 'wincmd p'
+  call win_gotoid(b:ast_explorer_source_window)
+  call s:DeleteMatches()
+  call s:AddMatches(a:locinfo)
+  execute printf('normal! %dG%d|', a:locinfo.start.line, a:locinfo.start.column + 1)
+  call win_gotoid(s:ast_explorer_window_id)
 endfunction
 
 function! s:HighlightNodeForCurrentLine()
@@ -131,14 +127,15 @@ function! s:DrawAst(buffer_line_list)
   setlocal winfixwidth
 endfunction
 
-let s:source_window_to_ast_explorer_mapping = {}
+let s:ast_explorer_window_id = 0
 
 function! s:DeleteMatchesIfAstExplorerGone()
   let window_id = win_getid()
-  let ast_explorer_window_id = get(s:source_window_to_ast_explorer_mapping, window_id)
-  if ast_explorer_window_id && !win_id2win(ast_explorer_window_id)
+  if !win_id2win(s:ast_explorer_window_id)
     call s:DeleteMatches()
-    call remove(s:source_window_to_ast_explorer_mapping, window_id)
+    augroup ast_source
+      autocmd!
+    augroup END
   endif
 endfunction
 
@@ -148,10 +145,16 @@ function! s:ASTExplore(filepath, window_id)
     return
   endif
 
-  if has_key(s:source_window_to_ast_explorer_mapping, a:window_id)
-    let ast_explorer_window_number = win_id2win(s:source_window_to_ast_explorer_mapping[a:window_id])
-    execute ast_explorer_window_number . 'windo quit'
-    return
+  let ast_explorer_window_number = win_id2win(s:ast_explorer_window_id)
+  if ast_explorer_window_number
+    call win_gotoid(s:ast_explorer_window_id)
+    if b:ast_explorer_source_window == a:window_id
+      quit
+      return
+    else
+      quit
+      call win_gotoid(a:window_id)
+    endif
   endif
 
   augroup ast_source
@@ -159,10 +162,10 @@ function! s:ASTExplore(filepath, window_id)
     autocmd BufEnter <buffer> call s:DeleteMatchesIfAstExplorerGone()
   augroup END
 
-  execute 'keepalt 60vsplit ' . a:filepath . '-ast'
+  execute 'keepalt botright 60vsplit ASTExplorer'
   let b:ast_explorer_node_list = []
   let b:ast_explorer_source_window = a:window_id
-  let s:source_window_to_ast_explorer_mapping[b:ast_explorer_source_window] = win_getid()
+  let s:ast_explorer_window_id = win_getid()
 
   let ast = system('./node_modules/.bin/parser ' . a:filepath)
   let ast_dict = json_decode(ast)
@@ -192,10 +195,10 @@ function! s:ASTJumpToNode()
   let window_id = win_getid()
   let cursor_line = line('.')
   let cursor_column = col('.') - 1
-  if !get(s:source_window_to_ast_explorer_mapping, window_id)
+  if !win_id2win(s:ast_explorer_window_id)
     ASTExplore
   endif
-  call win_gotoid(s:source_window_to_ast_explorer_mapping[window_id])
+  call win_gotoid(s:ast_explorer_window_id)
   let buffer_line = 1
   let jump_node_buffer_line = 1
   for [_, locinfo] in b:ast_explorer_node_list
@@ -213,7 +216,7 @@ function! s:ASTJumpToNode()
     endif
     let buffer_line += 1
   endfor
-  execute 'normal! ' . jump_node_buffer_line . 'G'
+  execute 'normal! ' . jump_node_buffer_line . 'Gzz'
 endfunction
 
 highlight AstNode guibg=blue ctermbg=blue
