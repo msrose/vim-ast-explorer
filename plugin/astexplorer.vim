@@ -1,6 +1,6 @@
 let s:node_identifier = 0
 
-function! s:BuildTree(node, tree, parent_id, descriptor)
+function! s:BuildTree(node, tree, parent_id, descriptor) abort
   if type(a:node) == v:t_dict
     if has_key(a:node, 'type') && has_key(a:node, 'loc')
       let current_node_id = s:node_identifier
@@ -35,7 +35,7 @@ function! s:BuildTree(node, tree, parent_id, descriptor)
   endif
 endfunction
 
-function! s:BuildOutputList(list, node_id, tree, depth)
+function! s:BuildOutputList(list, node_id, tree, depth) abort
   if !has_key(a:tree, a:node_id)
     return
   endif
@@ -51,11 +51,11 @@ function! s:BuildOutputList(list, node_id, tree, depth)
   endfor
 endfunction
 
-function! s:AddMatch(match)
+function! s:AddMatch(match) abort
   call add(b:ast_explorer_match_list, matchaddpos('AstNode', [a:match]))
 endfunction
 
-function! s:AddMatches(locinfo)
+function! s:AddMatches(locinfo) abort
   if !exists('b:ast_explorer_match_list')
     let b:ast_explorer_match_list = []
   endif
@@ -72,7 +72,7 @@ function! s:AddMatches(locinfo)
   call s:AddMatch([end.line, 1, end.column])
 endfunction
 
-function! s:DeleteMatches()
+function! s:DeleteMatches() abort
   if !exists('b:ast_explorer_match_list')
     return
   endif
@@ -86,7 +86,7 @@ function! s:DeleteMatches()
   let b:ast_explorer_match_list = []
 endfunction
 
-function! s:HighlightNode(locinfo)
+function! s:HighlightNode(locinfo) abort
   if !exists('b:ast_explorer_previous_cursor_line')
     let b:ast_explorer_previous_cursor_line = 0
   endif
@@ -102,11 +102,11 @@ function! s:HighlightNode(locinfo)
   call win_gotoid(s:ast_explorer_window_id)
 endfunction
 
-function! s:HighlightNodeForCurrentLine()
+function! s:HighlightNodeForCurrentLine() abort
   call s:HighlightNode(b:ast_explorer_node_list[line('.') - 1][1])
 endfunction
 
-function! s:DrawAst(buffer_line_list)
+function! s:DrawAst(buffer_line_list) abort
   setlocal modifiable
   setlocal noreadonly
   call setline(1, a:buffer_line_list)
@@ -129,7 +129,7 @@ endfunction
 
 let s:ast_explorer_window_id = 0
 
-function! s:DeleteMatchesIfAstExplorerGone()
+function! s:DeleteMatchesIfAstExplorerGone() abort
   let window_id = win_getid()
   if !win_id2win(s:ast_explorer_window_id)
     call s:DeleteMatches()
@@ -139,7 +139,7 @@ function! s:DeleteMatchesIfAstExplorerGone()
   endif
 endfunction
 
-function! s:ASTExplore(filepath, window_id)
+function! s:ASTExplore(filepath, window_id) abort
   if exists('b:ast_explorer_source_window')
     quit
     return
@@ -188,7 +188,7 @@ function! s:ASTExplore(filepath, window_id)
   nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
 endfunction
 
-function! s:ASTJumpToNode()
+function! s:ASTJumpToNode() abort
   if exists('b:ast_explorer_source_window')
     return
   endif
