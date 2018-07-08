@@ -2,11 +2,16 @@
 
 [WIP] AST Explorer plugin for vim; inspired by https://astexplorer.net/
 
-Highly experimental so far, so don't install this plugin. Only works with @babel/parser.
+Highly experimental so far, so don't install this plugin. Only works with @babel/parser (babylon).
+
+Kind of works with:
+
+- esprima (`--loc`)
+- acorn (`--locations`)
 
 ## TODO
 
-- [ ] Jump to AST node from file
+- [x] Jump to AST node from file
 - [x] Actually highlight nodes instead of using visual mode
 - [ ] Prettier AST output: folds, highlighting
 - [ ] Support for more parsers
