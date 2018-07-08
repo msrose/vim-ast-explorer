@@ -99,7 +99,7 @@ function! s:HighlightNode(locinfo) abort
   call s:DeleteMatches()
   call s:AddMatches(a:locinfo)
   execute printf('normal! %dG%d|', a:locinfo.start.line, a:locinfo.start.column + 1)
-  call win_gotoid(s:ast_explorer_window_id)
+  call win_gotoid(t:ast_explorer_window_id)
 endfunction
 
 function! s:HighlightNodeForCurrentLine() abort
@@ -127,14 +127,11 @@ function! s:DrawAst(buffer_line_list) abort
   setlocal winfixwidth
 endfunction
 
-let s:ast_explorer_window_id = 0
-
 function! s:DeleteMatchesIfAstExplorerGone() abort
-  let window_id = win_getid()
-  if !win_id2win(s:ast_explorer_window_id)
+  if !win_id2win(get(t:, 'ast_explorer_window_id'))
     call s:DeleteMatches()
     augroup ast_source
-      autocmd!
+      autocmd! * <buffer>
     augroup END
   endif
 endfunction
@@ -145,9 +142,10 @@ function! s:ASTExplore(filepath, window_id) abort
     return
   endif
 
-  let ast_explorer_window_number = win_id2win(s:ast_explorer_window_id)
+  let ast_explorer_window_id = get(t:, 'ast_explorer_window_id')
+  let ast_explorer_window_number = win_id2win(ast_explorer_window_id)
   if ast_explorer_window_number
-    call win_gotoid(s:ast_explorer_window_id)
+    call win_gotoid(ast_explorer_window_id)
     if b:ast_explorer_source_window == a:window_id
       quit
       return
@@ -158,14 +156,14 @@ function! s:ASTExplore(filepath, window_id) abort
   endif
 
   augroup ast_source
-    autocmd!
+    autocmd! * <buffer>
     autocmd BufEnter <buffer> call s:DeleteMatchesIfAstExplorerGone()
   augroup END
 
-  execute 'keepalt botright 60vsplit ASTExplorer'
+  execute 'keepalt botright 60vsplit ASTExplorer' . win_id2tabwin(a:window_id)[0]
   let b:ast_explorer_node_list = []
   let b:ast_explorer_source_window = a:window_id
-  let s:ast_explorer_window_id = win_getid()
+  let t:ast_explorer_window_id = win_getid()
 
   let ast = system('./node_modules/.bin/parser ' . a:filepath)
   let ast_dict = json_decode(ast)
@@ -182,7 +180,7 @@ function! s:ASTExplore(filepath, window_id) abort
   call s:HighlightNodeForCurrentLine()
 
   augroup ast
-    autocmd!
+    autocmd! * <buffer>
     autocmd CursorMoved <buffer> call s:HighlightNodeForCurrentLine()
   augroup END
   nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
@@ -195,10 +193,10 @@ function! s:ASTJumpToNode() abort
   let window_id = win_getid()
   let cursor_line = line('.')
   let cursor_column = col('.') - 1
-  if !win_id2win(s:ast_explorer_window_id)
+  if !win_id2win(get(t:, 'ast_explorer_window_id'))
     ASTExplore
   endif
-  call win_gotoid(s:ast_explorer_window_id)
+  call win_gotoid(get(t:, 'ast_explorer_window_id'))
   let buffer_line = 1
   let jump_node_buffer_line = 1
   for [_, locinfo] in b:ast_explorer_node_list
