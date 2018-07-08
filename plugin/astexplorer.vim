@@ -182,7 +182,41 @@ function! s:ASTExplore(filepath, window_id)
     autocmd!
     autocmd CursorMoved <buffer> call s:HighlightNodeForCurrentLine()
   augroup END
+  nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
+endfunction
+
+function! s:ASTJumpToNode()
+  if exists('b:ast_explorer_source_window')
+    return
+  endif
+  let window_id = win_getid()
+  let cursor_line = line('.')
+  let cursor_column = col('.') - 1
+  if !get(s:source_window_to_ast_explorer_mapping, window_id)
+    ASTExplore
+  endif
+  call win_gotoid(s:source_window_to_ast_explorer_mapping[window_id])
+  let buffer_line = 1
+  let jump_node_buffer_line = 1
+  for [_, locinfo] in b:ast_explorer_node_list
+    if locinfo.start.line > cursor_line
+      break
+    endif
+    let start = locinfo.start
+    let end = locinfo.end
+    if start.line == cursor_line && cursor_column >= start.column &&
+          \ (cursor_line < end.line || cursor_line == end.line && cursor_column < end.column) ||
+          \ start.line < cursor_line && cursor_line < end.line ||
+          \ end.line == cursor_line && cursor_column < end.column &&
+          \ (cursor_line > start.line || cursor_line == start.line && cursor_column >= start.column)
+      let jump_node_buffer_line = buffer_line
+    endif
+    let buffer_line += 1
+  endfor
+  execute 'normal! ' . jump_node_buffer_line . 'G'
 endfunction
 
 highlight AstNode guibg=blue ctermbg=blue
+
 command! ASTExplore call s:ASTExplore(expand('%'), win_getid())
+command! ASTViewNode call s:ASTJumpToNode()
