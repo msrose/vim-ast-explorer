@@ -125,6 +125,7 @@ function! s:DrawAst(buffer_line_list) abort
     setlocal colorcolumn=
   endif
   setlocal winfixwidth
+  set bufhidden=delete
 endfunction
 
 function! s:DeleteMatchesIfAstExplorerGone() abort
@@ -160,7 +161,8 @@ function! s:ASTExplore(filepath, window_id) abort
     autocmd BufEnter <buffer> call s:DeleteMatchesIfAstExplorerGone()
   augroup END
 
-  execute 'keepalt botright 60vsplit ASTExplorer' . win_id2tabwin(a:window_id)[0]
+  let current_tab_number = win_id2tabwin(a:window_id)[0]
+  execute 'silent keepalt botright 60vsplit ASTExplorer' . current_tab_number
   let b:ast_explorer_node_list = []
   let b:ast_explorer_source_window = a:window_id
   let t:ast_explorer_window_id = win_getid()
@@ -214,7 +216,7 @@ function! s:ASTJumpToNode() abort
     endif
     let buffer_line += 1
   endfor
-  execute 'normal! ' . jump_node_buffer_line . 'Gzz'
+  execute 'normal! zR' . jump_node_buffer_line . 'Gzz'
 endfunction
 
 highlight AstNode guibg=blue ctermbg=blue
