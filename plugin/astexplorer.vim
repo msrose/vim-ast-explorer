@@ -7,7 +7,8 @@ function! s:BuildTree(node, tree, parent_id, descriptor) abort
       if !has_key(a:tree, a:parent_id)
         let a:tree[a:parent_id] = []
       endif
-      let node_info = { 'type': a:node.type, 'loc': a:node.loc, 'id': current_node_id, 'descriptor': a:descriptor }
+      let node_info = { 'type': a:node.type, 'loc': a:node.loc, 'id': current_node_id,
+            \ 'name': get(a:node, 'name', ''), 'descriptor': a:descriptor, 'extra': {} }
       let insertion_index = 0
       for sibling in a:tree[a:parent_id]
         if sibling.loc.start.line > node_info.loc.start.line ||
@@ -23,6 +24,12 @@ function! s:BuildTree(node, tree, parent_id, descriptor) abort
       elseif has_key(a:node, 'operator') && type(a:node.operator) == v:t_string
         let node_info.value = a:node.operator
       endif
+      for [key, value] in items(a:node)
+        if key !=# 'type' && key !=# 'loc' && key !=# 'value' && key !=# 'operator' && key !=# 'name' &&
+              \ type(value) != v:t_dict && type(value) != v:t_list
+          let node_info.extra[key] = value
+        endif
+      endfor
       let s:node_identifier += 1
       for [key, node] in items(a:node)
         call s:BuildTree(node, a:tree, current_node_id, key)
@@ -44,9 +51,9 @@ function! s:BuildOutputList(list, node_id, tree, depth) abort
     call add(a:list, [indent
           \ . (!empty(node.descriptor) ? node.descriptor . ': ' : '')
           \ . node.type
-          \ . (has_key(node.loc, 'identifierName') ? ' - ' . node.loc.identifierName : '')
+          \ . (!empty(node.name) ? ' - ' . node.name : '')
           \ . (has_key(node, 'value') ? ' - ' . node.value : '')
-          \ , node.loc])
+          \ , node.loc, json_encode(node.extra)])
     call s:BuildOutputList(a:list, node.id, a:tree, a:depth + 1)
   endfor
 endfunction
@@ -192,7 +199,7 @@ function! s:ASTExplore(filepath, window_id) abort
   call s:BuildOutputList(b:ast_explorer_node_list, 'root', tree, 0)
 
   let buffer_line_list = []
-  for [buffer_line, locinfo] in b:ast_explorer_node_list
+  for [buffer_line; _] in b:ast_explorer_node_list
     call add(buffer_line_list, buffer_line)
   endfor
   call s:DrawAst(buffer_line_list)
@@ -205,6 +212,7 @@ function! s:ASTExplore(filepath, window_id) abort
     autocmd BufEnter <buffer> call s:CloseTabIfOnlyContainsExplorer()
   augroup END
   nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
+  nnoremap <silent> <buffer> i :echo b:ast_explorer_node_list[line('.') - 1][2]<CR>
 endfunction
 
 function! s:ASTJumpToNode() abort
@@ -220,7 +228,7 @@ function! s:ASTJumpToNode() abort
   call win_gotoid(get(t:, 'ast_explorer_window_id'))
   let buffer_line = 1
   let jump_node_buffer_line = 1
-  for [_, locinfo] in b:ast_explorer_node_list
+  for [_, locinfo; _] in b:ast_explorer_node_list
     if locinfo.start.line > cursor_line
       break
     endif
