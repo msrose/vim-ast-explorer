@@ -2,7 +2,7 @@ let s:node_identifier = 0
 
 function! s:BuildTree(node, tree, parent_id, descriptor) abort
   if type(a:node) == v:t_dict
-    if has_key(a:node, 'type') && has_key(a:node, 'loc')
+    if has_key(a:node, 'type') && type(a:node.type) == v:t_string && has_key(a:node, 'loc')
       let current_node_id = s:node_identifier
       if !has_key(a:tree, a:parent_id)
         let a:tree[a:parent_id] = []
@@ -26,7 +26,7 @@ function! s:BuildTree(node, tree, parent_id, descriptor) abort
       endif
       for [key, value] in items(a:node)
         if key !=# 'type' && key !=# 'loc' && key !=# 'value' && key !=# 'operator' && key !=# 'name' &&
-              \ type(value) != v:t_dict && type(value) != v:t_list
+              \ (type(value) != v:t_dict || !has_key(value, 'loc')) && type(value) != v:t_list
           let node_info.extra[key] = value
         endif
       endfor
@@ -113,6 +113,10 @@ function! s:HighlightNodeForCurrentLine() abort
   call s:HighlightNode(b:ast_explorer_node_list[line('.') - 1][1])
 endfunction
 
+function! AstExplorerCurrentParserName()
+  return b:ast_explorer_current_parser
+endfunction
+
 function! s:DrawAst(buffer_line_list) abort
   setlocal modifiable
   setlocal noreadonly
@@ -126,7 +130,7 @@ function! s:DrawAst(buffer_line_list) abort
   setlocal foldmethod=indent
   setlocal shiftwidth=1
   setlocal filetype=ast
-  setlocal statusline=ASTExplorer
+  setlocal statusline=ASTExplorer\ [%{AstExplorerCurrentParserName()}]
   setlocal nonumber
   if &colorcolumn
     setlocal colorcolumn=
@@ -147,11 +151,22 @@ function! s:DeleteMatchesIfAstExplorerGone() abort
 endfunction
 
 function! s:CloseTabIfOnlyContainsExplorer() abort
-  let tab_number = get(get(getwininfo(get(t:, 'ast_explorer_window_id')), 0, {}), 'tabnr')
-  if tab_number && len(gettabinfo(tab_number)[0].windows) == 1
+  if len(gettabinfo(tabpagenr())[0].windows) == 1
     quit
   endif
 endfunction
+
+let s:supported_parsers = {
+      \   'javascript': {
+      \     'default': '@babel/parser',
+      \     'executables': {
+      \       '@babel/parser': ['node_modules/.bin/parser'],
+      \       'babylon': ['node_modules/.bin/babylon'],
+      \       'esprima': ['node_modules/.bin/esparse', '--loc'],
+      \       'acorn': ['node_modules/.bin/acorn', '--locations'],
+      \     }
+      \   }
+      \ }
 
 function! s:ASTExplore(filepath, window_id) abort
   if exists('b:ast_explorer_source_window')
@@ -181,6 +196,41 @@ function! s:ASTExplore(filepath, window_id) abort
     endif
   endif
 
+  let filetypes = split(&filetype, '\.')
+
+  let available_parsers = {}
+  let supported_parsers_for_filetypes = []
+  let default_parsers_for_filetypes = []
+  for filetype in filetypes
+    let filetype_parsers = get(s:supported_parsers, filetype, {})
+    if !empty(filetype_parsers)
+      call add(default_parsers_for_filetypes, filetype_parsers.default)
+      for [parser_name, executable] in items(filetype_parsers.executables)
+        call add(supported_parsers_for_filetypes, parser_name)
+        let [parser_executable; flags] = executable
+        let executable_file = findfile(parser_executable, ';')
+        if executable(executable_file)
+          let available_parsers[parser_name] = fnamemodify(executable_file, ':p') . ' ' . join(flags)
+        endif
+      endfor
+    endif
+  endfor
+
+  if empty(supported_parsers_for_filetypes)
+    echohl WarningMsg
+    echo 'No supported parsers for filetype "' . &filetype . '"'
+    echohl None
+    return
+  endif
+
+  if empty(available_parsers)
+    echohl WarningMsg
+    echo 'No supported parsers found for filetype "' . &filetype . '". '
+          \ . 'Install one of [' . join(supported_parsers_for_filetypes, ', ') . '].'
+    echohl None
+    return
+  endif
+
   augroup ast_source
     autocmd! * <buffer>
     autocmd BufEnter <buffer> call s:DeleteMatchesIfAstExplorerGone()
@@ -190,9 +240,20 @@ function! s:ASTExplore(filepath, window_id) abort
   execute 'silent keepalt botright 60vsplit ASTExplorer' . current_tab_number
   let b:ast_explorer_node_list = []
   let b:ast_explorer_source_window = a:window_id
+  let b:ast_explorer_available_parsers = available_parsers
   let t:ast_explorer_window_id = win_getid()
 
-  let ast = system('./node_modules/.bin/parser ' . a:filepath)
+  let b:ast_explorer_current_parser = ''
+  for default_parser in default_parsers_for_filetypes
+    if has_key(available_parsers, default_parser)
+      let b:ast_explorer_current_parser = default_parser
+    endif
+  endfor
+  if empty(b:ast_explorer_current_parser)
+    let b:ast_explorer_current_parser = keys(available_parsers)[0]
+  endif
+
+  let ast = system(available_parsers[b:ast_explorer_current_parser] . ' ' . a:filepath)
   let ast_dict = json_decode(ast)
   let tree = {}
   call s:BuildTree(ast_dict, tree, 'root', '')
@@ -213,6 +274,7 @@ function! s:ASTExplore(filepath, window_id) abort
   augroup END
   nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
   nnoremap <silent> <buffer> i :echo b:ast_explorer_node_list[line('.') - 1][2]<CR>
+  nnoremap <silent> <buffer> p :echo b:ast_explorer_available_parsers<CR>
 endfunction
 
 function! s:ASTJumpToNode() abort
