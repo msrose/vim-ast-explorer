@@ -129,7 +129,9 @@ function! s:DrawAst(buffer_line_list) abort
 endfunction
 
 function! s:DeleteMatchesIfAstExplorerGone() abort
-  if !win_id2win(get(t:, 'ast_explorer_window_id'))
+  let ast_explorer_window_id = get(t:, 'ast_explorer_window_id')
+  if !ast_explorer_window_id ||
+        \ getbufvar(winbufnr(ast_explorer_window_id), 'ast_explorer_source_window') != win_getid()
     call s:DeleteMatches()
     augroup ast_source
       autocmd! * <buffer>
@@ -137,9 +139,20 @@ function! s:DeleteMatchesIfAstExplorerGone() abort
   endif
 endfunction
 
+function! s:CloseTabIfOnlyContainsExplorer() abort
+  let tab_number = get(get(getwininfo(get(t:, 'ast_explorer_window_id')), 0, {}), 'tabnr')
+  if tab_number && len(gettabinfo(tab_number)[0].windows) == 1
+    quit
+  endif
+endfunction
+
 function! s:ASTExplore(filepath, window_id) abort
   if exists('b:ast_explorer_source_window')
+    let old_source_window_id = win_id2win(b:ast_explorer_source_window)
     quit
+    if old_source_window_id
+      execute old_source_window_id . 'windo call s:DeleteMatches()'
+    endif
     return
   endif
 
@@ -147,6 +160,11 @@ function! s:ASTExplore(filepath, window_id) abort
   let ast_explorer_window_number = win_id2win(ast_explorer_window_id)
   if ast_explorer_window_number
     call win_gotoid(ast_explorer_window_id)
+    let old_source_window_id = win_id2win(b:ast_explorer_source_window)
+    if old_source_window_id
+      execute old_source_window_id . 'windo call s:DeleteMatches()'
+      call win_gotoid(ast_explorer_window_id)
+    endif
     if b:ast_explorer_source_window == a:window_id
       quit
       return
@@ -184,6 +202,7 @@ function! s:ASTExplore(filepath, window_id) abort
   augroup ast
     autocmd! * <buffer>
     autocmd CursorMoved <buffer> call s:HighlightNodeForCurrentLine()
+    autocmd BufEnter <buffer> call s:CloseTabIfOnlyContainsExplorer()
   augroup END
   nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
 endfunction
