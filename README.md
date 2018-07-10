@@ -2,6 +2,8 @@
 
 [WIP] AST Explorer plugin for vim; inspired by https://astexplorer.net/.
 
+![ast explorer demo](./demo.gif)
+
 Highly experimental so far, so don't install this plugin.
 
 Works with:
