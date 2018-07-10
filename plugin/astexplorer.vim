@@ -113,7 +113,7 @@ function! s:HighlightNodeForCurrentLine() abort
   call s:HighlightNode(b:ast_explorer_node_list[line('.') - 1][1])
 endfunction
 
-function! AstExplorerCurrentParserName()
+function! AstExplorerCurrentParserName() abort
   return b:ast_explorer_current_parser
 endfunction
 
@@ -193,6 +193,36 @@ function! s:EchoError(message) abort
   echohl None
 endfunction
 
+function! s:OpenAstExplorerWindow(ast, source_window_id, available_parsers, current_parser) abort
+  execute 'silent keepalt botright 60vsplit ASTExplorer' . tabpagenr()
+  let b:ast_explorer_node_list = []
+  let b:ast_explorer_source_window = a:source_window_id
+  let b:ast_explorer_available_parsers = a:available_parsers
+  let b:ast_explorer_current_parser = a:current_parser
+  let t:ast_explorer_window_id = win_getid()
+
+  let tree = {}
+  call s:BuildTree(a:ast, tree, 'root', '')
+  call s:BuildOutputList(b:ast_explorer_node_list, 'root', tree, 0)
+
+  let buffer_line_list = []
+  for [buffer_line; _] in b:ast_explorer_node_list
+    call add(buffer_line_list, buffer_line)
+  endfor
+  call s:DrawAst(buffer_line_list)
+  unlet! b:ast_explorer_previous_cursor_line
+  call s:HighlightNodeForCurrentLine()
+
+  augroup ast
+    autocmd! * <buffer>
+    autocmd CursorMoved <buffer> call s:HighlightNodeForCurrentLine()
+    autocmd BufEnter <buffer> call s:CloseTabIfOnlyContainsExplorer()
+  augroup END
+  nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
+  nnoremap <silent> <buffer> i :echo b:ast_explorer_node_list[line('.') - 1][2]<CR>
+  nnoremap <silent> <buffer> p :echo b:ast_explorer_available_parsers<CR>
+endfunction
+
 function! s:ASTExplore(filepath) abort
   if exists('b:ast_explorer_source_window')
     call s:CloseAstExplorerWindow()
@@ -242,49 +272,25 @@ function! s:ASTExplore(filepath) abort
     return
   endif
 
+  let current_parser = ''
+  for default_parser in default_parsers_for_filetypes
+    if has_key(available_parsers, default_parser)
+      let current_parser = default_parser
+    endif
+  endfor
+  if empty(current_parser)
+    let current_parser = keys(available_parsers)[0]
+  endif
+
   augroup ast_source
     autocmd! * <buffer>
     autocmd BufEnter <buffer> call s:DeleteMatchesIfAstExplorerGone()
   augroup END
 
-  execute 'silent keepalt botright 60vsplit ASTExplorer' . tabpagenr()
-  let b:ast_explorer_node_list = []
-  let b:ast_explorer_source_window = current_source_window_id
-  let b:ast_explorer_available_parsers = available_parsers
-  let t:ast_explorer_window_id = win_getid()
+  let ast_json = system(available_parsers[current_parser] . ' ' . a:filepath)
+  let ast_dict = json_decode(ast_json)
 
-  let b:ast_explorer_current_parser = ''
-  for default_parser in default_parsers_for_filetypes
-    if has_key(available_parsers, default_parser)
-      let b:ast_explorer_current_parser = default_parser
-    endif
-  endfor
-  if empty(b:ast_explorer_current_parser)
-    let b:ast_explorer_current_parser = keys(available_parsers)[0]
-  endif
-
-  let ast = system(available_parsers[b:ast_explorer_current_parser] . ' ' . a:filepath)
-  let ast_dict = json_decode(ast)
-  let tree = {}
-  call s:BuildTree(ast_dict, tree, 'root', '')
-  call s:BuildOutputList(b:ast_explorer_node_list, 'root', tree, 0)
-
-  let buffer_line_list = []
-  for [buffer_line; _] in b:ast_explorer_node_list
-    call add(buffer_line_list, buffer_line)
-  endfor
-  call s:DrawAst(buffer_line_list)
-  unlet! b:ast_explorer_previous_cursor_line
-  call s:HighlightNodeForCurrentLine()
-
-  augroup ast
-    autocmd! * <buffer>
-    autocmd CursorMoved <buffer> call s:HighlightNodeForCurrentLine()
-    autocmd BufEnter <buffer> call s:CloseTabIfOnlyContainsExplorer()
-  augroup END
-  nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
-  nnoremap <silent> <buffer> i :echo b:ast_explorer_node_list[line('.') - 1][2]<CR>
-  nnoremap <silent> <buffer> p :echo b:ast_explorer_available_parsers<CR>
+  call s:OpenAstExplorerWindow(ast_dict, current_source_window_id, available_parsers, current_parser)
 endfunction
 
 function! s:ASTJumpToNode() abort
