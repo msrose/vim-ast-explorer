@@ -1,3 +1,19 @@
+command! ASTExplore call s:ASTExplore(expand('%'))
+command! ASTViewNode call s:ASTJumpToNode()
+
+highlight AstNode guibg=blue ctermbg=blue
+
+
+""" --- Helpers --- {{{
+function! s:EchoError(message) abort
+  echohl WarningMsg
+  echo a:message
+  echohl None
+endfunction
+"""}}}
+
+
+""" --- AST Manipulation --- {{{
 let s:node_identifier = 0
 
 function! s:BuildTree(node, tree, parent_id, descriptor) abort
@@ -57,7 +73,10 @@ function! s:BuildOutputList(list, node_id, tree, depth) abort
     call s:BuildOutputList(a:list, node.id, a:tree, a:depth + 1)
   endfor
 endfunction
+"""}}}
 
+
+""" --- Source Window Functions --- {{{
 function! s:AddMatch(match) abort
   call add(b:ast_explorer_match_list, matchaddpos('AstNode', [a:match]))
 endfunction
@@ -93,6 +112,54 @@ function! s:DeleteMatches() abort
   let b:ast_explorer_match_list = []
 endfunction
 
+function! s:CurrentWindowAstShown() abort
+  let ast_explorer_window_id = get(t:, 'ast_explorer_window_id')
+  return ast_explorer_window_id &&
+        \ getbufvar(winbufnr(ast_explorer_window_id), 'ast_explorer_source_window') == win_getid()
+endfunction
+
+function! s:DeleteMatchesIfAstExplorerGone() abort
+  if !s:CurrentWindowAstShown()
+    call s:DeleteMatches()
+    augroup ast_source
+      autocmd! * <buffer>
+    augroup END
+  endif
+endfunction
+
+function! s:OpenAstExplorerWindow(ast, source_window_id, available_parsers, current_parser) abort
+  execute 'silent keepalt botright 60vsplit ASTExplorer' . tabpagenr()
+  let b:ast_explorer_node_list = []
+  let b:ast_explorer_source_window = a:source_window_id
+  let b:ast_explorer_available_parsers = a:available_parsers
+  let b:ast_explorer_current_parser = a:current_parser
+  let t:ast_explorer_window_id = win_getid()
+
+  let tree = {}
+  call s:BuildTree(a:ast, tree, 'root', '')
+  call s:BuildOutputList(b:ast_explorer_node_list, 'root', tree, 0)
+
+  let buffer_line_list = []
+  for [buffer_line; _] in b:ast_explorer_node_list
+    call add(buffer_line_list, buffer_line)
+  endfor
+  call s:DrawAst(buffer_line_list)
+  unlet! b:ast_explorer_previous_cursor_line
+  call s:HighlightNodeForCurrentLine()
+
+  augroup ast
+    autocmd! * <buffer>
+    autocmd CursorMoved <buffer> call s:HighlightNodeForCurrentLine()
+    autocmd BufEnter <buffer> call s:CloseTabIfOnlyContainsExplorer()
+  augroup END
+  nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
+  nnoremap <silent> <buffer> i :echo b:ast_explorer_node_list[line('.') - 1][2]<CR>
+  nnoremap <silent> <buffer> p :echo b:ast_explorer_available_parsers<CR>
+endfunction
+"""}}}
+
+
+""" --- AST Explorer Window Functions --- {{{
 function! s:HighlightNode(locinfo) abort
   if !exists('b:ast_explorer_previous_cursor_line')
     let b:ast_explorer_previous_cursor_line = 0
@@ -142,39 +209,15 @@ function! s:DrawAst(buffer_line_list) abort
   set bufhidden=delete
 endfunction
 
-function! s:CurrentWindowAstShown() abort
-  let ast_explorer_window_id = get(t:, 'ast_explorer_window_id')
-  return ast_explorer_window_id &&
-        \ getbufvar(winbufnr(ast_explorer_window_id), 'ast_explorer_source_window') == win_getid()
-endfunction
-
-function! s:DeleteMatchesIfAstExplorerGone() abort
-  if !s:CurrentWindowAstShown()
-    call s:DeleteMatches()
-    augroup ast_source
-      autocmd! * <buffer>
-    augroup END
-  endif
-endfunction
-
 function! s:CloseTabIfOnlyContainsExplorer() abort
   if len(gettabinfo(tabpagenr())[0].windows) == 1
     quit
   endif
 endfunction
+"""}}}
 
-let s:supported_parsers = {
-      \   'javascript': {
-      \     'default': '@babel/parser',
-      \     'executables': {
-      \       '@babel/parser': ['node_modules/.bin/parser'],
-      \       'babylon': ['node_modules/.bin/babylon'],
-      \       'esprima': ['node_modules/.bin/esparse', '--loc'],
-      \       'acorn': ['node_modules/.bin/acorn', '--locations'],
-      \     }
-      \   }
-      \ }
 
+""" --- Functions for any context --- {{{
 function! s:GoToAstExplorerWindow() abort
   let ast_explorer_window_id = get(t:, 'ast_explorer_window_id')
   let ast_explorer_window_number = win_id2win(ast_explorer_window_id)
@@ -194,45 +237,21 @@ function! s:CloseAstExplorerWindow() abort
   endif
 endfunction
 
-function! s:EchoError(message) abort
-  echohl WarningMsg
-  echo a:message
-  echohl None
-endfunction
-
-function! s:OpenAstExplorerWindow(ast, source_window_id, available_parsers, current_parser) abort
-  execute 'silent keepalt botright 60vsplit ASTExplorer' . tabpagenr()
-  let b:ast_explorer_node_list = []
-  let b:ast_explorer_source_window = a:source_window_id
-  let b:ast_explorer_available_parsers = a:available_parsers
-  let b:ast_explorer_current_parser = a:current_parser
-  let t:ast_explorer_window_id = win_getid()
-
-  let tree = {}
-  call s:BuildTree(a:ast, tree, 'root', '')
-  call s:BuildOutputList(b:ast_explorer_node_list, 'root', tree, 0)
-
-  let buffer_line_list = []
-  for [buffer_line; _] in b:ast_explorer_node_list
-    call add(buffer_line_list, buffer_line)
-  endfor
-  call s:DrawAst(buffer_line_list)
-  unlet! b:ast_explorer_previous_cursor_line
-  call s:HighlightNodeForCurrentLine()
-
-  augroup ast
-    autocmd! * <buffer>
-    autocmd CursorMoved <buffer> call s:HighlightNodeForCurrentLine()
-    autocmd BufEnter <buffer> call s:CloseTabIfOnlyContainsExplorer()
-  augroup END
-  nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
-  nnoremap <silent> <buffer> i :echo b:ast_explorer_node_list[line('.') - 1][2]<CR>
-  nnoremap <silent> <buffer> p :echo b:ast_explorer_available_parsers<CR>
-endfunction
-
 function! s:InsideAstExplorerWindow() abort
   return exists('b:ast_explorer_source_window')
 endfunction
+
+let s:supported_parsers = {
+      \   'javascript': {
+      \     'default': '@babel/parser',
+      \     'executables': {
+      \       '@babel/parser': ['node_modules/.bin/parser'],
+      \       'babylon': ['node_modules/.bin/babylon'],
+      \       'esprima': ['node_modules/.bin/esparse', '--loc'],
+      \       'acorn': ['node_modules/.bin/acorn', '--locations'],
+      \     }
+      \   }
+      \ }
 
 function! s:ASTExplore(filepath) abort
   if s:InsideAstExplorerWindow()
@@ -301,6 +320,7 @@ function! s:ASTExplore(filepath) abort
   let ast_json = system(available_parsers[current_parser] . ' ' . a:filepath)
   let ast_dict = json_decode(ast_json)
 
+
   call s:OpenAstExplorerWindow(ast_dict, current_source_window_id, available_parsers, current_parser)
 endfunction
 
@@ -333,8 +353,4 @@ function! s:ASTJumpToNode() abort
   endfor
   execute 'normal! zR' . jump_node_buffer_line . 'Gzz'
 endfunction
-
-highlight AstNode guibg=blue ctermbg=blue
-
-command! ASTExplore call s:ASTExplore(expand('%'))
-command! ASTViewNode call s:ASTJumpToNode()
+"""}}}
