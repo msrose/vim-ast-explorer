@@ -102,7 +102,10 @@ function! s:HighlightNode(locinfo) abort
     return
   endif
   let b:ast_explorer_previous_cursor_line = current_cursor_line
-  call win_gotoid(b:ast_explorer_source_window)
+  if !win_gotoid(b:ast_explorer_source_window)
+    call s:EchoError('Source window is gone!')
+    return
+  endif
   call s:DeleteMatches()
   call s:AddMatches(a:locinfo)
   execute printf('normal! %dG%d|', a:locinfo.start.line, a:locinfo.start.column + 1)
@@ -139,10 +142,14 @@ function! s:DrawAst(buffer_line_list) abort
   set bufhidden=delete
 endfunction
 
-function! s:DeleteMatchesIfAstExplorerGone() abort
+function! s:CurrentWindowAstShown() abort
   let ast_explorer_window_id = get(t:, 'ast_explorer_window_id')
-  if !ast_explorer_window_id ||
-        \ getbufvar(winbufnr(ast_explorer_window_id), 'ast_explorer_source_window') != win_getid()
+  return ast_explorer_window_id &&
+        \ getbufvar(winbufnr(ast_explorer_window_id), 'ast_explorer_source_window') == win_getid()
+endfunction
+
+function! s:DeleteMatchesIfAstExplorerGone() abort
+  if !s:CurrentWindowAstShown()
     call s:DeleteMatches()
     augroup ast_source
       autocmd! * <buffer>
@@ -223,8 +230,12 @@ function! s:OpenAstExplorerWindow(ast, source_window_id, available_parsers, curr
   nnoremap <silent> <buffer> p :echo b:ast_explorer_available_parsers<CR>
 endfunction
 
+function! s:InsideAstExplorerWindow() abort
+  return exists('b:ast_explorer_source_window')
+endfunction
+
 function! s:ASTExplore(filepath) abort
-  if exists('b:ast_explorer_source_window')
+  if s:InsideAstExplorerWindow()
     call s:CloseAstExplorerWindow()
     return
   endif
@@ -294,14 +305,15 @@ function! s:ASTExplore(filepath) abort
 endfunction
 
 function! s:ASTJumpToNode() abort
-  if exists('b:ast_explorer_source_window')
+  if s:InsideAstExplorerWindow()
     return
   endif
   let cursor_line = line('.')
   let cursor_column = col('.') - 1
-  if !s:GoToAstExplorerWindow()
+  if !s:CurrentWindowAstShown()
     ASTExplore
   endif
+  call s:GoToAstExplorerWindow()
   let buffer_line = 1
   let jump_node_buffer_line = 1
   for [_, locinfo; _] in b:ast_explorer_node_list
