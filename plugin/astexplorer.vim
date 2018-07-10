@@ -187,6 +187,12 @@ function! s:CloseAstExplorerWindow() abort
   endif
 endfunction
 
+function! s:EchoError(message) abort
+  echohl WarningMsg
+  echo a:message
+  echohl None
+endfunction
+
 function! s:ASTExplore(filepath) abort
   if exists('b:ast_explorer_source_window')
     call s:CloseAstExplorerWindow()
@@ -226,17 +232,13 @@ function! s:ASTExplore(filepath) abort
   endfor
 
   if empty(supported_parsers_for_filetypes)
-    echohl WarningMsg
-    echo 'No supported parsers for filetype "' . &filetype . '"'
-    echohl None
+    call s:EchoError('No supported parsers for filetype "' . &filetype . '"')
     return
   endif
 
   if empty(available_parsers)
-    echohl WarningMsg
-    echo 'No supported parsers found for filetype "' . &filetype . '". '
-          \ . 'Install one of [' . join(supported_parsers_for_filetypes, ', ') . '].'
-    echohl None
+    call s:EchoError('No supported parsers found for filetype "' . &filetype . '". '
+          \ . 'Install one of [' . join(supported_parsers_for_filetypes, ', ') . '].')
     return
   endif
 
