@@ -152,8 +152,8 @@ function! s:OpenAstExplorerWindow(ast, source_window_id, available_parsers, curr
     autocmd CursorMoved <buffer> call s:HighlightNodeForCurrentLine()
     autocmd BufEnter <buffer> call s:CloseTabIfOnlyContainsExplorer()
   augroup END
-  nnoremap <silent> <buffer> l :echo b:ast_explorer_node_list[line('.') - 1][1]<CR>
-  nnoremap <silent> <buffer> i :echo b:ast_explorer_node_list[line('.') - 1][2]<CR>
+  nnoremap <silent> <buffer> l :echo <SID>GetNodeInfoForCurrentLine()[1]<CR>
+  nnoremap <silent> <buffer> i :echo <SID>GetNodeInfoForCurrentLine()[2]<CR>
   nnoremap <silent> <buffer> p :echo b:ast_explorer_available_parsers<CR>
 endfunction
 """}}}
@@ -179,8 +179,12 @@ function! s:HighlightNode(locinfo) abort
   call win_gotoid(t:ast_explorer_window_id)
 endfunction
 
+function! s:GetNodeInfoForCurrentLine() abort
+  return b:ast_explorer_node_list[line('.') - 1]
+endfunction
+
 function! s:HighlightNodeForCurrentLine() abort
-  call s:HighlightNode(b:ast_explorer_node_list[line('.') - 1][1])
+  call s:HighlightNode(s:GetNodeInfoForCurrentLine()[1])
 endfunction
 
 function! AstExplorerCurrentParserName() abort
