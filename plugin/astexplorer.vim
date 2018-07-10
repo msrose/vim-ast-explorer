@@ -297,13 +297,11 @@ function! s:ASTJumpToNode() abort
   if exists('b:ast_explorer_source_window')
     return
   endif
-  let window_id = win_getid()
   let cursor_line = line('.')
   let cursor_column = col('.') - 1
-  if !win_id2win(get(t:, 'ast_explorer_window_id'))
+  if !s:GoToAstExplorerWindow()
     ASTExplore
   endif
-  call win_gotoid(get(t:, 'ast_explorer_window_id'))
   let buffer_line = 1
   let jump_node_buffer_line = 1
   for [_, locinfo; _] in b:ast_explorer_node_list
