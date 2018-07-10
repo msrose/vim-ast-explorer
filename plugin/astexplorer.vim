@@ -168,31 +168,40 @@ let s:supported_parsers = {
       \   }
       \ }
 
-function! s:ASTExplore(filepath, window_id) abort
-  if exists('b:ast_explorer_source_window')
+function! s:GoToAstExplorerWindow() abort
+  let ast_explorer_window_id = get(t:, 'ast_explorer_window_id')
+  let ast_explorer_window_number = win_id2win(ast_explorer_window_id)
+  if ast_explorer_window_number
+    call win_gotoid(ast_explorer_window_id)
+  endif
+  return ast_explorer_window_number
+endfunction
+
+function! s:CloseAstExplorerWindow() abort
+  if s:GoToAstExplorerWindow()
     let old_source_window_id = win_id2win(b:ast_explorer_source_window)
     quit
     if old_source_window_id
       execute old_source_window_id . 'windo call s:DeleteMatches()'
     endif
+  endif
+endfunction
+
+function! s:ASTExplore(filepath) abort
+  if exists('b:ast_explorer_source_window')
+    call s:CloseAstExplorerWindow()
     return
   endif
 
-  let ast_explorer_window_id = get(t:, 'ast_explorer_window_id')
-  let ast_explorer_window_number = win_id2win(ast_explorer_window_id)
-  if ast_explorer_window_number
-    call win_gotoid(ast_explorer_window_id)
-    let old_source_window_id = win_id2win(b:ast_explorer_source_window)
-    if old_source_window_id
-      execute old_source_window_id . 'windo call s:DeleteMatches()'
-      call win_gotoid(ast_explorer_window_id)
-    endif
-    if b:ast_explorer_source_window == a:window_id
-      quit
+  let current_source_window_id = win_getid()
+
+  if s:GoToAstExplorerWindow()
+    let old_source_window_id = b:ast_explorer_source_window
+    call s:CloseAstExplorerWindow()
+    if old_source_window_id == current_source_window_id
       return
     else
-      quit
-      call win_gotoid(a:window_id)
+      call win_gotoid(current_source_window_id)
     endif
   endif
 
@@ -236,10 +245,9 @@ function! s:ASTExplore(filepath, window_id) abort
     autocmd BufEnter <buffer> call s:DeleteMatchesIfAstExplorerGone()
   augroup END
 
-  let current_tab_number = win_id2tabwin(a:window_id)[0]
-  execute 'silent keepalt botright 60vsplit ASTExplorer' . current_tab_number
+  execute 'silent keepalt botright 60vsplit ASTExplorer' . tabpagenr()
   let b:ast_explorer_node_list = []
-  let b:ast_explorer_source_window = a:window_id
+  let b:ast_explorer_source_window = current_source_window_id
   let b:ast_explorer_available_parsers = available_parsers
   let t:ast_explorer_window_id = win_getid()
 
@@ -310,5 +318,5 @@ endfunction
 
 highlight AstNode guibg=blue ctermbg=blue
 
-command! ASTExplore call s:ASTExplore(expand('%'), win_getid())
+command! ASTExplore call s:ASTExplore(expand('%'))
 command! ASTViewNode call s:ASTJumpToNode()
