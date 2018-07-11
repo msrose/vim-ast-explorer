@@ -3,6 +3,11 @@ command! ASTViewNode call s:ASTJumpToNode()
 
 highlight AstNode guibg=blue ctermbg=blue
 
+" TODO: move to syntax file
+highlight AstNodeType guifg=blue ctermfg=blue
+highlight AstNodeDescriptor guifg=green ctermfg=green
+highlight AstNodeValue guifg=red ctermfg=red
+
 
 """ --- Helpers --- {{{
 function! s:EchoError(message) abort
@@ -24,7 +29,7 @@ function! s:BuildTree(node, tree, parent_id, descriptor) abort
         let a:tree[a:parent_id] = []
       endif
       let node_info = { 'type': a:node.type, 'loc': a:node.loc, 'id': current_node_id,
-            \ 'name': get(a:node, 'name', ''), 'descriptor': a:descriptor, 'extra': {} }
+            \ 'descriptor': a:descriptor, 'extra': {} }
       let insertion_index = 0
       for sibling in a:tree[a:parent_id]
         if sibling.loc.start.line > node_info.loc.start.line ||
@@ -37,6 +42,8 @@ function! s:BuildTree(node, tree, parent_id, descriptor) abort
       call insert(a:tree[a:parent_id], node_info, insertion_index)
       if has_key(a:node, 'value') && type(a:node.value) != v:t_dict
         let node_info.value = json_encode(a:node.value)
+      elseif has_key(a:node, 'name') && type(a:node.name) == v:t_string
+        let node_info.value = a:node.name
       elseif has_key(a:node, 'operator') && type(a:node.operator) == v:t_string
         let node_info.value = a:node.operator
       endif
@@ -67,8 +74,7 @@ function! s:BuildOutputList(list, node_id, tree, depth) abort
     call add(a:list, [indent
           \ . (!empty(node.descriptor) ? node.descriptor . ': ' : '')
           \ . node.type
-          \ . (!empty(node.name) ? ' - ' . node.name : '')
-          \ . (has_key(node, 'value') ? ' - ' . node.value : '')
+          \ . (has_key(node, 'value') ? ' - ' . node.value : '  ')
           \ , node.loc, json_encode(node.extra)])
     call s:BuildOutputList(a:list, node.id, a:tree, a:depth + 1)
   endfor
@@ -146,6 +152,11 @@ function! s:OpenAstExplorerWindow(ast, source_window_id, available_parsers, curr
   call s:DrawAst(buffer_line_list)
   unlet! b:ast_explorer_previous_cursor_line
   call s:HighlightNodeForCurrentLine()
+
+  " TODO: move to syntax file
+  syntax region AstNodeDescriptor start="^" end=":"me=e-1
+  syntax region AstNodeValue start="- "ms=s+1 end="$"
+  syntax region AstNodeType start=": "ms=s+2 end=" -\|$"me=e-2
 
   augroup ast
     autocmd! * <buffer>
@@ -296,7 +307,7 @@ function! s:ASTExplore(filepath) abort
   endfor
 
   if empty(supported_parsers_for_filetypes)
-    call s:EchoError('No supported parsers for filetype "' . &filetype . '"')
+    call s:EchoError('No supported parsers for filetype "' . &filetype . '".')
     return
   endif
 
@@ -323,7 +334,6 @@ function! s:ASTExplore(filepath) abort
 
   let ast_json = system(available_parsers[current_parser] . ' ' . a:filepath)
   let ast_dict = json_decode(ast_json)
-
 
   call s:OpenAstExplorerWindow(ast_dict, current_source_window_id, available_parsers, current_parser)
 endfunction
