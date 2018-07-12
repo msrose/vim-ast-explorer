@@ -166,6 +166,7 @@ function! s:OpenAstExplorerWindow(ast, source_window_id, available_parsers, curr
   nnoremap <silent> <buffer> l :echo <SID>GetNodeInfoForCurrentLine()[1]<CR>
   nnoremap <silent> <buffer> i :echo <SID>GetNodeInfoForCurrentLine()[2]<CR>
   nnoremap <silent> <buffer> p :echo b:ast_explorer_available_parsers<CR>
+  nnoremap <silent> <buffer> s :call <SID>SwitchParsers()<CR>
 endfunction
 """}}}
 
@@ -229,6 +230,32 @@ function! s:CloseTabIfOnlyContainsExplorer() abort
   if len(gettabinfo(tabpagenr())[0].windows) == 1
     quit
   endif
+endfunction
+
+function! s:SwitchParsers() abort
+  let parser_names = keys(b:ast_explorer_available_parsers)
+  if len(parser_names) == 1
+    echo 'No other parsers available'
+    return
+  endif
+  let prompt = 'Choose new parser: '
+  let choice_value = 1
+  for parser_name in parser_names
+    let prompt = prompt . '(' . choice_value . ') ' . parser_name . '; '
+    let choice_value += 1
+  endfor
+  let choice = input(prompt)
+  if choice < 1 || choice > len(parser_names)
+    call s:EchoError('Invalid choice "' . choice . '"')
+    return
+  endif
+  let new_parser = get(parser_names, choice - 1)
+  let filetype = b:ast_explorer_available_parsers[new_parser].filetype
+  " This won't necessarily do the switch if there are parsers loaded for multiple filetypes
+  let s:supported_parsers[filetype].default = new_parser
+  call s:CloseAstExplorerWindow()
+  ASTExplore
+  echo 'Now using "' . new_parser . '".'
 endfunction
 """}}}
 
@@ -301,7 +328,10 @@ function! s:ASTExplore() abort
         let [parser_executable; flags] = executable
         let executable_file = findfile(parser_executable, ';')
         if executable(executable_file)
-          let available_parsers[parser_name] = fnamemodify(executable_file, ':p') . ' ' . join(flags)
+          let available_parsers[parser_name] = {
+                \ 'command': fnamemodify(executable_file, ':p') . ' ' . join(flags),
+                \ 'filetype': filetype,
+                \ }
         endif
       endfor
     endif
@@ -344,7 +374,7 @@ function! s:ASTExplore() abort
     let filepath = expand('%')
   endif
 
-  let ast_json = system(available_parsers[current_parser] . ' ' . filepath)
+  let ast_json = system(available_parsers[current_parser].command . ' ' . filepath)
   let ast_dict = json_decode(ast_json)
 
   call s:OpenAstExplorerWindow(ast_dict, current_source_window_id, available_parsers, current_parser)
