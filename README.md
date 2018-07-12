@@ -16,11 +16,12 @@ Works with:
 - [x] Jump to AST node from file
 - [x] Actually highlight nodes instead of using visual mode
 - [x] Automatically detect available supported parsers for filetype
-- [ ] Prettier AST output: folds, highlighting
+- [x] Run parser on buffer contents instead of current file name
+- [x] Prettier AST output: folds, highlighting
+- [ ] Switch between available parsers
+- [ ] Automatically show AST for active buffer (ditch the bufhidden=delete)
 - [ ] Support for more parsers and languages
 - [ ] Invoke parser with async job
-- [ ] Run parser on buffer contents instead of current file name
-- [ ] Switch between available parsers
 
 ## Development
 

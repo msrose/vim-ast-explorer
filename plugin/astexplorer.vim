@@ -1,4 +1,4 @@
-command! ASTExplore call s:ASTExplore(expand('%'))
+command! ASTExplore call s:ASTExplore()
 command! ASTViewNode call s:ASTJumpToNode()
 
 highlight AstNode guibg=blue ctermbg=blue
@@ -221,7 +221,8 @@ function! s:DrawAst(buffer_line_list) abort
     setlocal colorcolumn=
   endif
   setlocal winfixwidth
-  set bufhidden=delete
+  setlocal bufhidden=delete
+  setlocal nowrap
 endfunction
 
 function! s:CloseTabIfOnlyContainsExplorer() abort
@@ -268,7 +269,7 @@ let s:supported_parsers = {
       \   }
       \ }
 
-function! s:ASTExplore(filepath) abort
+function! s:ASTExplore() abort
   if s:InsideAstExplorerWindow()
     call s:CloseAstExplorerWindow()
     return
@@ -332,7 +333,18 @@ function! s:ASTExplore(filepath) abort
     autocmd BufEnter <buffer> call s:DeleteMatchesIfAstExplorerGone()
   augroup END
 
-  let ast_json = system(available_parsers[current_parser] . ' ' . a:filepath)
+  if &modified
+    if !exists('g:ast_explorer_tempfile_path')
+      let g:ast_explorer_tempfile_path = tempname()
+    endif
+    let filepath = g:ast_explorer_tempfile_path
+    execute 'silent keepalt write! ' . filepath
+    execute 'bwipeout ' . bufnr('$')
+  else
+    let filepath = expand('%')
+  endif
+
+  let ast_json = system(available_parsers[current_parser] . ' ' . filepath)
   let ast_dict = json_decode(ast_json)
 
   call s:OpenAstExplorerWindow(ast_dict, current_source_window_id, available_parsers, current_parser)
