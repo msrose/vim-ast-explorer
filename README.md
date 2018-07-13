@@ -18,10 +18,12 @@ Works with:
 - [x] Automatically detect available supported parsers for filetype
 - [x] Run parser on buffer contents instead of current file name
 - [x] Prettier AST output: folds, highlighting
-- [ ] Switch between available parsers
+- [x] Switch between available parsers
 - [ ] Automatically show AST for active buffer (ditch the bufhidden=delete)
 - [ ] Support for more parsers and languages
 - [ ] Invoke parser with async job
+- [ ] Handle comments correctly
+- [ ] Docs
 
 ## Development
 
