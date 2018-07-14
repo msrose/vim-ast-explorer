@@ -288,12 +288,33 @@ let s:supported_parsers = {
       \   'javascript': {
       \     'default': '@babel/parser',
       \     'executables': {
-      \       '@babel/parser': ['node_modules/.bin/parser'],
-      \       'babylon': ['node_modules/.bin/babylon'],
-      \       'esprima': ['node_modules/.bin/esparse', '--loc'],
-      \       'acorn': ['node_modules/.bin/acorn', '--locations'],
+      \       '@babel/parser': {
+      \         'test': 'node_modules/.bin/parser',
+      \         'command': ['node_modules/.bin/parser']
+      \       },
+      \       'babylon': {
+      \         'test': 'node_modules/.bin/babylon',
+      \         'command': ['node_modules/.bin/babylon']
+      \       },
+      \       'esprima': {
+      \         'test': 'node_modules/.bin/esparse',
+      \         'command': ['node_modules/.bin/esparse', '--loc']
+      \       },
+      \       'acorn': {
+      \         'test': 'node_modules/.bin/acorn',
+      \         'command': ['node_modules/.bin/acorn', '--locations']
+      \       },
       \     }
-      \   }
+      \   },
+      \   'json': {
+      \     'default': 'json-to-ast',
+      \     'executables': {
+      \       'json-to-ast': {
+      \        'test': 'node_modules/json-to-ast',
+      \         'command': ['node', '-e', "\"const lines = []; require('readline').createInterface({ input: process.stdin }).on('line', line => { lines.push(line) }).on('close', () => { console.log(JSON.stringify(require('json-to-ast')(lines.join('\\n')))) })\"", '<']
+      \       }
+      \     }
+      \   },
       \ }
 
 function! s:ASTExplore() abort
@@ -321,20 +342,29 @@ function! s:ASTExplore() abort
   let default_parsers_for_filetypes = []
   for filetype in filetypes
     let filetype_parsers = get(s:supported_parsers, filetype, {})
-    if !empty(filetype_parsers)
-      call add(default_parsers_for_filetypes, filetype_parsers.default)
-      for [parser_name, executable] in items(filetype_parsers.executables)
-        call add(supported_parsers_for_filetypes, parser_name)
-        let [parser_executable; flags] = executable
-        let executable_file = findfile(parser_executable, ';')
-        if executable(executable_file)
-          let available_parsers[parser_name] = {
-                \ 'command': fnamemodify(executable_file, ':p') . ' ' . join(flags),
-                \ 'filetype': filetype,
-                \ }
-        endif
-      endfor
+    if empty(filetype_parsers)
+      continue
     endif
+    call add(default_parsers_for_filetypes, filetype_parsers.default)
+    for [parser_name, details] in items(filetype_parsers.executables)
+      if empty(findfile(details.test, ';')) &&
+            \ empty(finddir(details.test, ';')) &&
+            \ !executable(details.test)
+        continue
+      endif
+      let [parser_executable; flags] = details.command
+      let executable_file = findfile(parser_executable, ';')
+      if empty(executable_file)
+        let executable_file = exepath(parser_executable)
+      endif
+      if executable(executable_file)
+        call add(supported_parsers_for_filetypes, parser_name)
+        let available_parsers[parser_name] = {
+              \ 'command': fnamemodify(executable_file, ':p') . ' ' . join(flags),
+              \ 'filetype': filetype,
+              \ }
+      endif
+    endfor
   endfor
 
   if empty(supported_parsers_for_filetypes)
